@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# https://github.com/tst2005sh/sh-splitmerge
+
 # format .*-*-8<--* titledata -*->8--*.*
 
 decode_slash() {
@@ -9,7 +11,6 @@ encode_slash() {
 	#sed -e 's,/,%%,g'
 	tr / \\\\
 }
-
 
 split_file() {
 	if [ $# -ne 1 ]; then
@@ -82,7 +83,6 @@ split_file() {
 	done < "$f"
 }
 
-
 mergeit() {
 	#echo >&2 "... mergeit $1"
 	local first=true
@@ -138,7 +138,6 @@ merge_to_file() {
 	mergeit "$dir"
 }
 
-
 splitmerge() {
 	local action=''
 	local prefix=''
@@ -150,8 +149,8 @@ splitmerge() {
 
 	while [ $# -gt 1 ]; do
 		case "$1" in
-		('-d'|'--dir')		action=merge ;;
-		('-f'|'--file')		action=split ;;
+		('-d'|'--dir'|'--merge')	action=merge ;;
+		('-f'|'--file'|'--split')	action=split ;;
 		('-l'|'--list')		action=list ;;
 		('-p'|'--prefix')	shift; prefix="$1";;
 		('-s'|'--suffix')	shift; suffix="$1";;
@@ -195,6 +194,10 @@ splitmerge() {
 				grep -- '-8[<>]' "$1" | sed -e 's,^.*-8<--*[[:space:]]\+\(.*\)[[:space:]]\+-*->8--*.*$,\1,g'
 			fi
 		;;
+		(*)
+			echo >&2 'Missing action (choose from --merge <dir>, --split <file> or --list <dir|file>)'
+			exit 1
+		;;
 	esac
 }
 
@@ -205,7 +208,6 @@ splitmerge "$@"
 #	(*)		split_file "$1" ;;
 #esac
 
-
 # FEATURE
 # merge: suffix/prefix for each mark (to be able to make line like "/* --8<-- ... -->8-- */" )
 # merge: or custom open/close mark --open '/* ---8<--- ' --close '--->8--- */'
@@ -213,17 +215,3 @@ splitmerge "$@"
 
 # merge: $0 -d dir
 # split: $0 -f file
-# split+merge: --if file --od foo.d
-
-# des essais d'options possibles :
-
-# $0 -d dir [-f -]
-# $0 -d2f dir
-
-# $0 -f file [-d file.d]
-# $0 -f2d file
-
-# $0 -f file -d -
-# $0 -f2f file
-# $0 -F file
-
