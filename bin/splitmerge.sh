@@ -26,10 +26,9 @@ split_file() {
 		(/*) ;;
 		(*) f="$(pwd)/$f" ;;
 	esac
-	local suffix=".d"
 	local dst
 	if [ $# -eq 0 ]; then
-		dst="$f$suffix"
+		dst="${f}.d"
 	else
 		dst="$1";shift
 	fi
@@ -61,7 +60,7 @@ split_file() {
 				continue
 			;;
 		esac
-		local fdst="$(printf %03d $i).$(printf '%s' "${name:-no-name}" | encode_slash).partial"
+		local fdst="$(printf %03d $i).$(printf '%s' "${name:-no-name}" | encode_slash).partial.${partialext:-txt}"
 		case "$line" in
 			(*'title:'*)
 				if printf '%s\n' "$line" | grep -q '^[[:space:]]\+title:[[:space:]]\+'; then
@@ -101,9 +100,11 @@ mergeit() {
 		[ "$name" = . ] && dname="" || dname="$dname/"
 		dname="$(printf %s "$dname" | decode_slash | sed -e 's,[^.]*\.\([^/]\+\)\.d\(/\),\1\2,g')"
 
-		local fname="$(basename "$f" )"
-		fname="${fname#*.}"
-		fname="${fname%.partial}"
+		# 					# file.d/001.title.partial.txt
+		local fname="$(basename "$f")" 		#        001.title.partial.txt
+		fname="${fname#*.}"			#            title.partial.txt
+		fname="${fname%.*}"			#            title.partial
+		fname="${fname%.partial}"		#            title
 
 		local name="$dname$fname"
 		name="${name#*/}"
@@ -146,6 +147,7 @@ splitmerge() {
 	local markclose0='>8'
 	local nomarkline=false
 	local n=---
+	local partialext=''
 
 	while [ $# -gt 1 ]; do
 		case "$1" in
@@ -154,6 +156,7 @@ splitmerge() {
 		('-l'|'--list')		action=list ;;
 		('-p'|'--prefix')	shift; prefix="$1";;
 		('-s'|'--suffix')	shift; suffix="$1";;
+		('-e'|'--ext')		shift; partialext="$1";;
 		('-1')			n=-;;
 		('-2')			n=--;;
 		('-3')			n=---;;
@@ -180,6 +183,21 @@ splitmerge() {
 	if [ -z "$n" ]; then
 		markopen=''
 		markclose=''
+	fi
+	if [ -z "$partialext" ]; then
+		case "$action" in
+		("split")
+			partialext="${1##*.}"
+		;;
+		("merge")
+			partialext="${1%.d}"
+			partialext="${partialext##*.}"
+		;;
+		esac
+		if [ -z "$partialext" ]; then
+			echo >&2 "ERROR: partial extension is not defined. Please use --ext"
+			exit 1
+		fi
 	fi
 
 	case "$action" in
