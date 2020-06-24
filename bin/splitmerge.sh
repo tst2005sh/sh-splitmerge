@@ -91,10 +91,6 @@ mergeit() {
 			echo >&2 "skip file $f (because $f.d exists)"
 			continue
 		fi
-#		local name="$f"		# file.d/001.title.partial
-#		name="${f#*/}"		#        001.title.partial
-#		name="${name#*.}"	#	     title.partial
-#		name="${name%.partial}"	#            title
 
 		local dname="$(dirname "$f")"
 		[ "$name" = . ] && dname="" || dname="$dname/"
@@ -104,6 +100,7 @@ mergeit() {
 		local fname="$(basename "$f")" 		#        001.title.partial.txt
 		fname="${fname#*.}"			#            title.partial.txt
 		fname="${fname%.*}"			#            title.partial
+		#fname="${fname%.$partialext}"		#            title.partial
 		fname="${fname%.partial}"		#            title
 
 		local name="$dname$fname"
@@ -186,23 +183,24 @@ splitmerge() {
 	fi
 	if [ -z "$partialext" ]; then
 		case "$action" in
-		("split")
-			partialext="${1##*.}"
-		;;
 		("merge")
 			partialext="${1%.d}"
 			partialext="${partialext##*.}"
 		;;
+		("split")
+			partialext="${1##*.}"
+		;;
 		esac
-		if [ -z "$partialext" ]; then
-			echo >&2 "ERROR: partial extension is not defined. Please use --ext"
-			exit 1
-		fi
 	fi
 
 	case "$action" in
 		(merge) merge_to_file "$@" ;;
-		(split)	split_file "$@" ;;
+		(split)
+			if [ -z "$partialext" ]; then
+				echo >&2 "ERROR: partial extension is not defined. Please use --ext"
+				exit 1
+			fi
+			split_file "$@" ;;
 		(list)
 			if [ -d "$1" ]; then
 				ls -1 -- "$1" |
