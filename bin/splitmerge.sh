@@ -85,8 +85,9 @@ split_file() {
 mergeit() {
 	#echo >&2 "... mergeit $1"
 	local first=true
-	for f in "$1"/*; do
-		[ ! -h "$f" ] || continue
+	local partialdotext="${partialext:+.$partialext}"
+	for f in "$1"/*"$partialdotext"; do
+		#[ ! -h "$f" ] || continue
 		if [ -f "$f" ] && [ -d "${f}.d" ]; then
 			echo >&2 "skip file $f (because $f.d exists)"
 			continue
@@ -184,7 +185,8 @@ splitmerge() {
 	if [ -z "$partialext" ]; then
 		case "$action" in
 		("merge")
-			partialext="${1%.d}"
+			partialext="${1%/}"
+			partialext="${partialext%.d}"
 			partialext="${partialext##*.}"
 		;;
 		("split")
@@ -194,7 +196,7 @@ splitmerge() {
 	fi
 
 	case "$action" in
-		(merge) merge_to_file "$@" ;;
+		(merge)	merge_to_file "$@" ;;
 		(split)
 			if [ -z "$partialext" ]; then
 				echo >&2 "ERROR: partial extension is not defined. Please use --ext"
