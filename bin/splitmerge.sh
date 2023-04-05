@@ -11,6 +11,7 @@ encode_slash() {
 	#sed -e 's,/,%%,g'
 	tr / \\\\
 }
+string2regexp_grep() { sed -e 's/\([.*\[]\)/\\\1/g'; }
 
 split_file() {
 	if [ $# -eq 0 ]; then
@@ -60,7 +61,7 @@ split_file() {
 				continue
 			;;
 		esac
-		local fdst="$(printf %03d $i).$(printf '%s' "${name:-no-name}" | encode_slash).partial.${partialext:-txt}"
+		local fdst="$(printf %03d $i).$(printf '%s' "${name:-no-name}" | encode_slash)${partial}${ext:-txt}"
 		case "$line" in
 			(*'title:'*)
 				if printf '%s\n' "$line" | grep -q '^[[:space:]]\+title:[[:space:]]\+'; then
@@ -85,12 +86,11 @@ split_file() {
 mergeit() {
 	#echo >&2 "... mergeit $1"
 	local first=true
-	local partialdotext="${partialext:+.$partialext}"
 	for f in "$1"/*; do
 		[ -e "$f" ] || continue
 		case "$f" in
 		(*.d) ;;
-		(*"$partialdotext") ;;
+		(*"$ext") ;;
 		(*) continue ;;
 		esac
 
@@ -108,8 +108,8 @@ mergeit() {
 		local fname="$(basename "$f")" 		#        001.title.partial.txt
 		fname="${fname#*.}"			#            title.partial.txt
 		fname="${fname%.*}"			#            title.partial
-		#fname="${fname%.$partialext}"		#            title.partial
-		fname="${fname%.partial}"		#            title
+		#fname="${fname%$ext}"			#            title.partial
+		fname="${fname%$partial}"		#            title
 
 		local name="$dname$fname"
 		name="${name#*/}"
@@ -152,20 +152,55 @@ splitmerge() {
 	local markclose0='>8'
 	local nomarkline=false
 	local n=---
-	local partialext=''
+	local partial='.partial'
+	local ext=''
 
-	while [ $# -gt 1 ]; do
+	while [ $# -gt 1 ] || [ "$1" = --help ]; do
 		case "$1" in
+		('--help')
+			echo 'Usage: '"$0"' [options] --split <src-file> [dest-dir]'
+			echo 'Usage: '"$0"' [options] --merge <src-dir>'
+			echo 'Usage: '"$0"' [options] --list <src-file|src-dir>'
+			echo
+			echo 'Actions:'
+			echo '  -f|--file|--split'
+			echo '  -d|--dir|--merge'
+			echo '  -l|--list'
+			echo 
+			echo '  --split <src-file>             ...'
+			echo '  --split <src-file> <dest-dir>  ...'
+			echo '  --merge <src-dir>              ...'
+			echo '  --list <src-file>              ...'
+			echo '  --list <src-dir>               ...'
+			echo
+			echo 'Options:'
+			echo '  -p|--prefix <text>          insert <text> before the mark'
+			echo '  -s|--suffix <text>          insert <text> after the mark'
+			echo '  -P|--partial <dot-partial>  default value: .partial'
+			echo '  -E|--ext <dot-ext>          default value get from the directory extension (".bar" for "foo.bar.d")'
+			echo '  --raw                       merge will not write the split mark line at all'
+			echo '  -<number>|-1|-2|...|-99     the <number> of "-" in the mark (supported range: 0-99)'
+			echo '  -1                          the mark line will be "-8<- ... ->8-"'
+			echo '  -3                          like the default, the mark value will be "---8<--- ... --->8---"'
+			echo '  -0|-00                      no open/close mark shown, only the name'
+			echo
+			echo 'Samples of use:'
+			echo '  '"$0"' --split /etc/file.conf /tmp/test1.conf.d'
+			echo '  '"$0"' --prefix '\''# '\'' --partial '\'\'' --ext '\''.conf.disabled'\'' --split /etc/apache2/site-available/foo.conf /tmp/test2.d'
+
+			return 0
+		;;
 		('-d'|'--dir'|'--merge')	action=merge ;;
 		('-f'|'--file'|'--split')	action=split ;;
 		('-l'|'--list')		action=list ;;
 		('-p'|'--prefix')	shift; prefix="$1";;
 		('-s'|'--suffix')	shift; suffix="$1";;
-		('-e'|'--ext')		shift; partialext="$1";;
+		('-P'|'--partial')	shift; partial="$1";;
+		('-E'|'--ext')		shift; ext="$1";;
 		('-1')			n=-;;
 		('-2')			n=--;;
 		('-3')			n=---;;
-		('-00')			n='-';;
+		('-00')			n='';;
 		('-0')			n='';;
 		('--raw')		nomarkline=true;;
 		('-'[0-9]|'-'[0123][0-9])
@@ -177,7 +212,7 @@ splitmerge() {
 			if [ $# -eq 1 ] || [ $# -eq 2 ]; then
 				break
 			fi
-			echo >&2 "Usage: $0 [-p|-s|-n value] -f|-d|-l <input> [<output>]"
+			echo >&2 "Usage: $0 [-p|-s value] -f|-d|-l <input> [<output>]"
 			return 1
 		;;
 		esac
@@ -189,15 +224,16 @@ splitmerge() {
 		markopen=''
 		markclose=''
 	fi
-	if [ -z "$partialext" ]; then
+	if [ -z "$ext" ]; then
 		case "$action" in
 		("merge")
-			partialext="${1%/}"
-			partialext="${partialext%.d}"
-			partialext="${partialext##*.}"
+			ext="${1%/}"
+			ext="${ext%.d}"
+			ext=".${ext##*.}"
 		;;
 		("split")
-			partialext="${1##*.}"
+			ext="${1%/}"
+			ext=".${ext##*.}"
 		;;
 		esac
 	fi
@@ -205,16 +241,25 @@ splitmerge() {
 	case "$action" in
 		(merge)	merge_to_file "$@" ;;
 		(split)
-			if [ -z "$partialext" ]; then
-				echo >&2 "ERROR: partial extension is not defined. Please use --ext"
+			if [ -z "$ext" ]; then
+				echo >&2 "ERROR: extension is not defined. Please use --ext '.txt'"
 				exit 1
 			fi
 			split_file "$@" ;;
 		(list)
 			if [ -d "$1" ]; then
+				local partialre="$(printf %s "$partial" | string2regexp_grep)"
 				ls -1 -- "$1" |
+				while read -r f; do
+					case "$f" in
+					(*.d) ;;
+					(*"$ext") ;;
+					(*) continue ;;
+					esac
+					printf %s\\n "$f"
+				done |
 				decode_slash | sed -e 's,[^.]*\.\([^/]\+\)\.d\(/\),\1\2,g' |
-				sed -e 's,[^.]*\.\([^/]\+\)\.partial$,\1,g' -e 's,[^.]*\.\([^/]\+\)\.d$,\1/,g'
+				sed -e 's,[^.]*\.\([^/]\+\)'"$partialre"'$,\1,g' -e 's,[^.]*\.\([^/]\+\)\.d$,\1/,g'
 			else
 				grep -- '-8[<>]' "$1" | sed -e 's,^.*-8<--*[[:space:]]\+\(.*\)[[:space:]]\+-*->8--*.*$,\1,g'
 			fi
