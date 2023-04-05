@@ -44,12 +44,10 @@ split_file() {
 	mkdir -- "$dst" || return 2
 
 	local name=''
-	local i=0
+	local i=${startnumber:-1}
 	while IFS="$(printf '\n')" read -r line; do
 		case "$line" in
 			(*'->8-'*|*'-8<-'*)
-				i=$(($i +1))
-
 				case "$line" in
 				(*'-8<-'*'->8-'*)
 					name="$(printf '%s\n' "$line" | sed -e 's,^.*-8<--*[[:space:]]\+\(.*\)[[:space:]]\+-*->8-.*$,\1,g')"
@@ -58,6 +56,7 @@ split_file() {
 					name="$(printf '%s\n' "$line" | grep '^.*-8<--* ' | sed -e 's,^.*-8<--* \(.*\)$,\1,g')"
 				;;
 				esac
+				i=$(($i +1))
 				continue
 			;;
 		esac
@@ -154,6 +153,7 @@ splitmerge() {
 	local n=---
 	local partial='.partial'
 	local ext=''
+	local startnumber=1
 
 	while [ $# -gt 1 ] || [ "$1" = --help ]; do
 		case "$1" in
@@ -178,6 +178,7 @@ splitmerge() {
 			echo '  -s|--suffix <text>          insert <text> after the mark'
 			echo '  -P|--partial <dot-partial>  default value: .partial'
 			echo '  -E|--ext <dot-ext>          default value get from the directory extension (".bar" for "foo.bar.d")'
+			echo '  -i|--startnumber <0-999>    initial number value used in split files name (default: 001)'
 			echo '  --raw                       merge will not write the split mark line at all'
 			echo '  -<number>|-1|-2|...|-99     the <number> of "-" in the mark (supported range: 0-99)'
 			echo '  -1                          the mark line will be "-8<- ... ->8-"'
@@ -197,6 +198,13 @@ splitmerge() {
 		('-s'|'--suffix')	shift; suffix="$1";;
 		('-P'|'--partial')	shift; partial="$1";;
 		('-E'|'--ext')		shift; ext="$1";;
+		('-i'|'--startnumber')	shift;
+			case "$1" in
+				([0-9]|[0-9][0-9]|[0-9][0-9][0-9])
+					startnumber="$1"
+				;;
+			esac
+		;;
 		('-1')			n=-;;
 		('-2')			n=--;;
 		('-3')			n=---;;
