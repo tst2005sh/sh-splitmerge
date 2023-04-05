@@ -13,8 +13,8 @@ encode_slash() {
 }
 
 split_file() {
-	if [ $# -ne 1 ]; then
-		echo >&2 "Usage: $0 <file> [<directory-name>]"
+	if [ $# -eq 0 ]; then
+		echo >&2 "Usage: $0 [...] --split <file> [<directory-name>]"
 		return 1
 	fi
 	local f="$1";shift
@@ -34,7 +34,7 @@ split_file() {
 	fi
 	case "$dst" in
 		(/*);;
-		(*) dst="$(pwd)$dst";;
+		(*) dst="$(pwd)/$dst";;
 	esac
 	if [ -d "$dst" ]; then
 		echo >&2 "destination directory already exists $dst"
