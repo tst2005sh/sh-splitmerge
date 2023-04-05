@@ -86,7 +86,14 @@ mergeit() {
 	#echo >&2 "... mergeit $1"
 	local first=true
 	local partialdotext="${partialext:+.$partialext}"
-	for f in "$1"/*"$partialdotext"; do
+	for f in "$1"/*; do
+		[ -e "$f" ] || continue
+		case "$f" in
+		(*.d) ;;
+		(*"$partialdotext") ;;
+		(*) continue ;;
+		esac
+
 		#[ ! -h "$f" ] || continue
 		if [ -f "$f" ] && [ -d "${f}.d" ]; then
 			echo >&2 "skip file $f (because $f.d exists)"
