@@ -43,7 +43,7 @@ split_file() {
 	mkdir -- "$dst" || return 2
 
 	local name=''
-	local i=1
+	local i=0
 	while IFS="$(printf '\n')" read -r line; do
 		case "$line" in
 			(*'->8-'*|*'-8<-'*)
